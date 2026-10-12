@@ -50,24 +50,20 @@ jobs:
             cat >> android/build.gradle.kts <<'EOF'
 
           subprojects {
-              afterEvaluate {
-                  if (hasProperty("android")) {
-                      extensions.configure<com.android.build.gradle.BaseExtension> {
-                          compileSdkVersion(36)
-                      }
-                  }
+              fun forceSdk() {
+                  extensions.findByType(com.android.build.gradle.BaseExtension::class.java)?.compileSdkVersion(36)
               }
+              if (state.executed) forceSdk() else afterEvaluate { forceSdk() }
           }
           EOF
           else
             cat >> android/build.gradle <<'EOF'
 
-          subprojects {
-              afterEvaluate { p ->
-                  if (p.hasProperty('android')) {
-                      p.android { compileSdkVersion 36 }
-                  }
+          subprojects { sp ->
+              def forceSdk = {
+                  sp.extensions.findByName('android')?.compileSdkVersion(36)
               }
+              if (sp.state.executed) { forceSdk() } else { sp.afterEvaluate { forceSdk() } }
           }
           EOF
           fi
