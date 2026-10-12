@@ -19,13 +19,27 @@ class ZevnApp extends StatelessWidget {
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
+  void _message(BuildContext context, String text) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(text)));
+  }
+
   Future<void> _newProject(BuildContext context) async {
-    final file = await ImagePicker().pickVideo(source: ImageSource.gallery);
-    if (file == null || !context.mounted) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => EditorPage(videoPath: file.path)),
-    );
+    try {
+      final file = await ImagePicker().pickVideo(source: ImageSource.gallery);
+      if (!context.mounted) return;
+      if (file == null) {
+        _message(context, 'No video selected');
+        return;
+      }
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => EditorPage(videoPath: file.path)),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      _message(context, 'Could not open gallery: $e');
+    }
   }
 
   @override
@@ -70,7 +84,7 @@ class HomePage extends StatelessWidget {
                   width: double.infinity,
                   height: 56,
                   child: OutlinedButton.icon(
-                    onPressed: () {},
+                    onPressed: () => _message(context, 'Coming soon'),
                     icon: const Icon(Icons.folder),
                     label: const Text('My Projects'),
                   ),
