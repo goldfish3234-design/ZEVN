@@ -1,0 +1,49 @@
+name: Build ZEVN APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Generate Android project
+        run: |
+          flutter create --project-name zevn --org com.zevn --platforms android _scaffold
+          cp -r _scaffold/android .
+          rm -rf _scaffold
+
+      - name: Configure app label, permissions and min SDK
+        run: |
+          sed -i 's/android:label="[^"]*"/android:label="ZEVN"/' android/app/src/main/AndroidManifest.xml
+          sed -i -E 's/minSdk(Version)? *= *flutter\.minSdkVersion/minSdk = 24/' android/app/build.gradle* || true
+          python3 - <<'EOF'
+          p = 'android/app/src/main/AndroidManifest.xml'
+          s = open(p).read()
+          perms = ('<uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>\n'
+                   '    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29"/>\n    ')
+          s = s.replace('<application', perms + '<application', 1)
+          open(p, 'w').write(s)
+          EOF
+
+      - run: flutter pub get
+
+      - run: flutter build apk --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ZEVN-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
