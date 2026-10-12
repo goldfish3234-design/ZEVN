@@ -37,6 +37,7 @@ jobs:
           p = 'android/app/src/main/AndroidManifest.xml'
           s = open(p).read()
           perms = ('<uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>\n'
+                   '    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>\n'
                    '    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29"/>\n    ')
           s = s.replace('<application', perms + '<application', 1)
           open(p, 'w').write(s)
