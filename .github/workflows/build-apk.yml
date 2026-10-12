@@ -29,10 +29,11 @@ jobs:
           cp -r _scaffold/android .
           rm -rf _scaffold
 
-      - name: Configure app label, permissions and min SDK
+      - name: Configure app label, permissions, SDK versions
         run: |
           sed -i 's/android:label="[^"]*"/android:label="ZEVN"/' android/app/src/main/AndroidManifest.xml
-          sed -i -E 's/minSdk(Version)? *= *flutter\.minSdkVersion/minSdk = 24/' android/app/build.gradle* || true
+          sed -i -E 's/minSdk(Version)? *=? *flutter\.minSdkVersion/minSdk = 24/' android/app/build.gradle* || true
+          sed -i -E 's/compileSdk(Version)? *=? *flutter\.compileSdkVersion/compileSdk = 36/' android/app/build.gradle* || true
           python3 - <<'EOF'
           p = 'android/app/src/main/AndroidManifest.xml'
           s = open(p).read()
