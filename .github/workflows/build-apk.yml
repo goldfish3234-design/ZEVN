@@ -44,6 +44,34 @@ jobs:
           open(p, 'w').write(s)
           EOF
 
+      - name: Force all plugins to compileSdk 36
+        run: |
+          if [ -f android/build.gradle.kts ]; then
+            cat >> android/build.gradle.kts <<'EOF'
+
+          subprojects {
+              afterEvaluate {
+                  if (hasProperty("android")) {
+                      extensions.configure<com.android.build.gradle.BaseExtension> {
+                          compileSdkVersion(36)
+                      }
+                  }
+              }
+          }
+          EOF
+          else
+            cat >> android/build.gradle <<'EOF'
+
+          subprojects {
+              afterEvaluate { p ->
+                  if (p.hasProperty('android')) {
+                      p.android { compileSdkVersion 36 }
+                  }
+              }
+          }
+          EOF
+          fi
+
       - run: flutter pub get
 
       - run: flutter build apk --release
