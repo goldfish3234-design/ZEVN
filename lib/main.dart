@@ -30,29 +30,31 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        body: Stack(fit: StackFit.expand, children: [
-          Image.asset('assets/images/hero.png', fit: BoxFit.cover),
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Colors.black87],
-              ),
+        body: Container(
+          width: double.infinity,
+          height: double.infinity,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF1E3C72), Color(0xFF2A5298), Color(0xFF000000)],
             ),
           ),
-          SafeArea(
+          child: SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Column(children: [
+                const SizedBox(height: 24),
                 const Text(
                   'ZEVN',
                   style: TextStyle(
-                    fontSize: 36,
+                    fontSize: 40,
                     fontWeight: FontWeight.bold,
-                    letterSpacing: 4,
+                    letterSpacing: 6,
                   ),
                 ),
+                const Text('Simple Video Editor',
+                    style: TextStyle(fontSize: 16, color: Colors.white70)),
                 const Spacer(),
                 SizedBox(
                   width: double.infinity,
@@ -76,6 +78,6 @@ class HomePage extends StatelessWidget {
               ]),
             ),
           ),
-        ]),
+        ),
       );
 }
