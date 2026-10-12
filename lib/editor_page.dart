@@ -19,6 +19,7 @@ class _EditorPageState extends State<EditorPage> {
   double _totalSec = 1, _start = 0, _end = 1;
   String _ratio = '16:9';
   bool _exporting = false;
+  String? _error;
 
   // 1080p output size for each aspect ratio
   static const _sizes = {
@@ -30,14 +31,19 @@ class _EditorPageState extends State<EditorPage> {
   @override
   void initState() {
     super.initState();
-    _controller = VideoPlayerController.file(File(widget.videoPath))
-      ..initialize().then((_) {
-        setState(() {
-          _totalSec = _controller.value.duration.inMilliseconds / 1000;
-          _end = _totalSec;
-        });
-        _controller.play();
+    _controller = VideoPlayerController.file(File(widget.videoPath));
+    _controller.initialize().then((_) {
+      if (!mounted) return;
+      setState(() {
+        _totalSec = _controller.value.duration.inMilliseconds / 1000;
+        if (_totalSec <= 0) _totalSec = 1;
+        _end = _totalSec;
       });
+      _controller.play();
+    }).catchError((e) {
+      if (!mounted) return;
+      setState(() => _error = 'Could not load video:\n$e');
+    });
   }
 
   @override
@@ -75,6 +81,16 @@ class _EditorPageState extends State<EditorPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_error != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('ZEVN Editor')),
+        body: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(_error!, style: const TextStyle(fontSize: 16)),
+        ),
+      );
+    }
+
     final ready = _controller.value.isInitialized;
     return Scaffold(
       appBar: AppBar(title: const Text('ZEVN Editor')),
