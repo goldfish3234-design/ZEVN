@@ -1,5 +1,5 @@
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'editor_page.dart';
 
 void main() => runApp(const ZevnApp());
@@ -19,6 +19,9 @@ class ZevnApp extends StatelessWidget {
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
+  // Native Android channel implemented in MainActivity.kt
+  static const _picker = MethodChannel('zevn/picker');
+
   void _message(BuildContext context, String text) {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(text)));
@@ -26,11 +29,8 @@ class HomePage extends StatelessWidget {
 
   Future<void> _newProject(BuildContext context) async {
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.video,
-      );
+      final String? path = await _picker.invokeMethod<String>('pickVideo');
       if (!context.mounted) return;
-      final path = result?.files.single.path;
       if (path == null) {
         _message(context, 'No video selected');
         return;
