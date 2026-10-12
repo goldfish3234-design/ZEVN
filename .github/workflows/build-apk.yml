@@ -132,17 +132,17 @@ jobs:
 
       - run: flutter pub get
 
-      - run: flutter build apk --release
+      - run: flutter build apk --release --split-per-abi
 
-      - name: Publish APK to Releases
+      - name: Publish APKs to Releases
         uses: softprops/action-gh-release@v2
         with:
           tag_name: zevn-v1.0.${{ github.run_number }}
           name: ZEVN v1.0 (build ${{ github.run_number }})
-          files: build/app/outputs/flutter-apk/app-release.apk
+          files: build/app/outputs/flutter-apk/*.apk
           make_latest: true
 
       - uses: actions/upload-artifact@v4
         with:
           name: ZEVN-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: build/app/outputs/flutter-apk/*.apk
