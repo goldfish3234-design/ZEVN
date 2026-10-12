@@ -1,5 +1,5 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'editor_page.dart';
 
 void main() => runApp(const ZevnApp());
@@ -26,15 +26,18 @@ class HomePage extends StatelessWidget {
 
   Future<void> _newProject(BuildContext context) async {
     try {
-      final file = await ImagePicker().pickVideo(source: ImageSource.gallery);
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.video,
+      );
       if (!context.mounted) return;
-      if (file == null) {
+      final path = result?.files.single.path;
+      if (path == null) {
         _message(context, 'No video selected');
         return;
       }
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => EditorPage(videoPath: file.path)),
+        MaterialPageRoute(builder: (_) => EditorPage(videoPath: path)),
       );
     } catch (e) {
       if (!context.mounted) return;
