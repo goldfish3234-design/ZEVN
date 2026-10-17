@@ -132,7 +132,9 @@ jobs:
 
       - run: flutter pub get
 
-      - run: flutter build apk --release --split-per-abi
+      # Only phone CPU types (32-bit and 64-bit ARM). x86 is emulator-only,
+      # so dropping it keeps the APKs smaller. --split-per-abi gives one small APK per CPU type.
+      - run: flutter build apk --release --split-per-abi --target-platform android-arm,android-arm64
 
       - name: Publish APKs to Releases
         uses: softprops/action-gh-release@v2
