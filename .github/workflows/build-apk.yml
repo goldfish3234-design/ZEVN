@@ -42,6 +42,7 @@ jobs:
           import io.flutter.embedding.android.FlutterActivity
           import io.flutter.embedding.engine.FlutterEngine
           import io.flutter.plugin.common.MethodChannel
+          import io.flutter.plugins.GeneratedPluginRegistrant
 
           class MainActivity : FlutterActivity() {
               private val channelName = "zevn/picker"
@@ -50,6 +51,7 @@ jobs:
 
               override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
                   super.configureFlutterEngine(flutterEngine)
+                  GeneratedPluginRegistrant.registerWith(flutterEngine)
                   MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
                       .setMethodCallHandler { call, result ->
                           if (call.method == "pickVideo") {
@@ -131,6 +133,14 @@ jobs:
           fi
 
       - run: flutter pub get
+
+      - name: Verify video_player plugin is registered
+        run: |
+          REG=android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+          if [ ! -f "$REG" ]; then
+            echo "GeneratedPluginRegistrant.java not found"; exit 1
+          fi
+          grep -q VideoPlayerPlugin "$REG" || { echo "video_player plugin missing from registrant"; exit 1; }
 
       # Only phone CPU types (32-bit and 64-bit ARM). x86 is emulator-only,
       # so dropping it keeps the APKs smaller. --split-per-abi gives one small APK per CPU type.
