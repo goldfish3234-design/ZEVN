@@ -25,6 +25,7 @@ class _EditorPageState extends State<EditorPage> {
   String? _music;
   double _musicVol = 0.5;
   bool _exporting = false;
+  bool _previewing = false;
   String? _error;
 
   // 1080p output size for each aspect ratio
@@ -38,6 +39,7 @@ class _EditorPageState extends State<EditorPage> {
   void initState() {
     super.initState();
     _controller = VideoPlayerController.file(File(widget.videoPath));
+    _controller.addListener(_onTick);
     _controller.initialize().then((_) {
       if (!mounted) return;
       setState(() {
@@ -46,7 +48,6 @@ class _EditorPageState extends State<EditorPage> {
         _segments = [Segment(0, _totalSec)];
         _sel = 0;
       });
-      _controller.play();
     }).catchError((e) {
       if (!mounted) return;
       setState(() => _error = 'Could not load video:\n$e');
@@ -55,12 +56,56 @@ class _EditorPageState extends State<EditorPage> {
 
   @override
   void dispose() {
+    _controller.removeListener(_onTick);
     _controller.dispose();
     super.dispose();
   }
 
+  // Stops playback when the selected segment has been played to its end
+  void _onTick() {
+    if (!_previewing || _segments.isEmpty) return;
+    final pos = _controller.value.position.inMilliseconds / 1000;
+    if (pos >= _segments[_sel].end) {
+      _controller.pause();
+      _previewing = false;
+      if (mounted) setState(() {});
+    }
+  }
+
+  void _stopPreview() {
+    if (_previewing) {
+      _controller.pause();
+      _previewing = false;
+    }
+  }
+
+  void _togglePreview() {
+    if (_previewing) {
+      setState(_stopPreview);
+      return;
+    }
+    final s = _segments[_sel];
+    _controller.seekTo(Duration(milliseconds: (s.start * 1000).round()));
+    _controller.play();
+    setState(() => _previewing = true);
+  }
+
+  void _select(int i) {
+    _stopPreview();
+    setState(() => _sel = i);
+  }
+
+  void _changeSegment(int i, double start, double end) {
+    _stopPreview();
+    setState(() {
+      _segments[i].start = start;
+      _segments[i].end = end;
+    });
+  }
+
   void _cut() {
     if (_segments.length <= 1) return;
+    _stopPreview();
     setState(() {
       _segments.removeAt(_sel);
       if (_sel >= _segments.length) _sel = _segments.length - 1;
@@ -68,6 +113,7 @@ class _EditorPageState extends State<EditorPage> {
   }
 
   void _copy() {
+    _stopPreview();
     setState(() {
       _segments.insert(_sel + 1, _segments[_sel].copy());
       _sel = _sel + 1;
@@ -81,6 +127,7 @@ class _EditorPageState extends State<EditorPage> {
   }
 
   Future<void> _export() async {
+    _stopPreview();
     setState(() => _exporting = true);
     final dir = await getTemporaryDirectory();
     final out =
@@ -151,26 +198,49 @@ class _EditorPageState extends State<EditorPage> {
       body: !ready
           ? const Center(child: CircularProgressIndicator())
           : ListView(padding: const EdgeInsets.all(16), children: [
-              AspectRatio(
-                aspectRatio: _controller.value.aspectRatio,
-                child: VideoPlayer(_controller),
-              ),
-              const SizedBox(height: 16),
-              const Text('Segments (tap to select)'),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: List.generate(_segments.length, (i) {
-                  final s = _segments[i];
-                  return ChoiceChip(
-                    label: Text(
-                        '${i + 1}: ${fmtSec(s.start)}-${fmtSec(s.end)}'),
-                    selected: i == _sel,
-                    onSelected: (_) => setState(() => _sel = i),
-                  );
-                }),
+              // Video preview, limited to about a third of the screen height
+              SizedBox(
+                height: MediaQuery.of(context).size.height * 0.36,
+                child: Center(
+                  child: AspectRatio(
+                    aspectRatio: _controller.value.aspectRatio,
+                    child: VideoPlayer(_controller),
+                  ),
+                ),
               ),
               const SizedBox(height: 8),
+              Row(children: [
+                IconButton.filled(
+                  onPressed: _togglePreview,
+                  icon: Icon(_previewing ? Icons.pause : Icons.play_arrow),
+                  tooltip: 'Play selected segment',
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ValueListenableBuilder<VideoPlayerValue>(
+                    valueListenable: _controller,
+                    builder: (context, v, _) => Text(
+                      '${fmtSec(v.position.inMilliseconds / 1000)} / ${fmtSec(_totalSec)}',
+                    ),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 12),
+              _Timeline(
+                controller: _controller,
+                segments: _segments,
+                sel: _sel,
+                total: _totalSec,
+                onSelect: _select,
+                onChange: _changeSegment,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Selected: ${fmtSec(_segments[_sel].start)} - ${fmtSec(_segments[_sel].end)}'
+                '   (drag the white edges to trim)',
+                style: const TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 12),
               Row(children: [
                 OutlinedButton.icon(
                   onPressed: _segments.length > 1 ? _cut : null,
@@ -184,18 +254,6 @@ class _EditorPageState extends State<EditorPage> {
                   label: const Text('Copy'),
                 ),
               ]),
-              const SizedBox(height: 16),
-              Text(
-                  'Selected: ${fmtSec(_segments[_sel].start)} - ${fmtSec(_segments[_sel].end)}'),
-              RangeSlider(
-                min: 0,
-                max: _totalSec,
-                values: RangeValues(_segments[_sel].start, _segments[_sel].end),
-                onChanged: (v) => setState(() {
-                  _segments[_sel].start = v.start;
-                  _segments[_sel].end = v.end;
-                }),
-              ),
               const SizedBox(height: 16),
               const Text('Music'),
               const SizedBox(height: 8),
@@ -241,6 +299,145 @@ class _EditorPageState extends State<EditorPage> {
                 label: Text(_exporting ? 'Exporting...' : 'Export 1080p'),
               ),
             ]),
+    );
+  }
+}
+
+// Timeline: each segment is a block sized by its duration.
+// The selected block has draggable edges, and a red line shows the playhead.
+class _Timeline extends StatelessWidget {
+  final VideoPlayerController controller;
+  final List<Segment> segments;
+  final int sel;
+  final double total;
+  final ValueChanged<int> onSelect;
+  final void Function(int i, double start, double end) onChange;
+
+  const _Timeline({
+    required this.controller,
+    required this.segments,
+    required this.sel,
+    required this.total,
+    required this.onSelect,
+    required this.onChange,
+  });
+
+  static const _height = 72.0;
+  static const _handleW = 22.0;
+  static const _minLen = 0.3; // seconds
+
+  double _clamp(double v, double lo, double hi) {
+    if (v < lo) return lo;
+    if (v > hi) return hi;
+    return v;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<VideoPlayerValue>(
+      valueListenable: controller,
+      builder: (context, value, _) {
+        final pos = value.position.inMilliseconds / 1000;
+        return LayoutBuilder(builder: (context, c) {
+          final w = c.maxWidth;
+          final playX = _clamp(pos / total * w, 0, w - 2);
+          return SizedBox(
+            height: _height,
+            width: w,
+            child: Stack(children: [
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white10,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+              for (var i = 0; i < segments.length; i++) _block(i, w),
+              Positioned(
+                left: playX,
+                top: 0,
+                bottom: 0,
+                width: 2,
+                child: Container(color: Colors.redAccent),
+              ),
+            ]),
+          );
+        });
+      },
+    );
+  }
+
+  Widget _block(int i, double w) {
+    final s = segments[i];
+    final isSel = i == sel;
+    final left = s.start / total * w;
+    final width = _clamp((s.end - s.start) / total * w, 4, w);
+
+    return Positioned(
+      left: left,
+      top: 6,
+      bottom: 6,
+      width: width,
+      child: GestureDetector(
+        onTap: () => onSelect(i),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isSel ? Colors.deepPurple : Colors.blueGrey,
+            borderRadius: BorderRadius.circular(6),
+            border: isSel ? Border.all(color: Colors.white, width: 1.5) : null,
+          ),
+          child: Stack(children: [
+            Center(
+              child: Text('${i + 1}',
+                  maxLines: 1, overflow: TextOverflow.clip),
+            ),
+            if (isSel) ...[
+              // Left edge: moves the segment start
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: _handleW,
+                child: _handle((dx) {
+                  final ds = dx / w * total;
+                  final ns = _clamp(s.start + ds, 0, s.end - _minLen);
+                  onChange(i, ns, s.end);
+                }),
+              ),
+              // Right edge: moves the segment end
+              Positioned(
+                right: 0,
+                top: 0,
+                bottom: 0,
+                width: _handleW,
+                child: _handle((dx) {
+                  final ds = dx / w * total;
+                  final ne = _clamp(s.end + ds, s.start + _minLen, total);
+                  onChange(i, s.start, ne);
+                }),
+              ),
+            ],
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _handle(void Function(double dx) onDrag) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onHorizontalDragUpdate: (d) => onDrag(d.delta.dx),
+      child: Center(
+        child: Container(
+          width: 5,
+          height: 28,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(3),
+          ),
+        ),
+      ),
     );
   }
 }
